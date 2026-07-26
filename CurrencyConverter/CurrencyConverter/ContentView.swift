@@ -44,6 +44,11 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
+                    Button("=") {
+                        if let field = focusedField {
+                            model.commit(field)
+                        }
+                    }
                     Button("Done") { focusedField = nil }
                 }
             }
