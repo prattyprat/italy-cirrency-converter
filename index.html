@@ -591,11 +591,11 @@
         { signal: controller.signal }
       );
       clearTimeout(timeout);
-      if (!response.ok) throw new Error("bad response");
+      if (!response.ok) throw new Error(`server returned HTTP ${response.status}`);
       const data = await response.json();
       const fetched = { USD: 1, ...data.rates };
       if (!CURRENCIES.every((c) => typeof fetched[c.code] === "number")) {
-        throw new Error("missing currency in response");
+        throw new Error("response was missing a currency");
       }
 
       rates = fetched;
@@ -603,11 +603,13 @@
       saveCachedRates(rates, fetchedAt);
       renderRatesFooter();
       setStatus(`Live rates · ${formatDateLabel(fetchedAt)}`);
-    } catch {
+    } catch (err) {
+      const reason = err && err.name === "AbortError" ? "request timed out" : (err && err.message) || "network error";
+      console.error("Live rate fetch failed:", err);
       if (cached) {
-        setStatus(`Offline · showing rates from ${formatDateLabel(cached.fetchedAt)}`);
+        setStatus(`Offline (${reason}) · showing rates from ${formatDateLabel(cached.fetchedAt)}`);
       } else {
-        setStatus("Offline · using built-in default rates");
+        setStatus(`Offline (${reason}) · using built-in default rates`);
       }
     }
   })();
