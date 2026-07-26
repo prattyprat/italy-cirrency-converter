@@ -224,6 +224,72 @@
   @media (prefers-reduced-motion: reduce) {
     .clear-all { transition: none; }
   }
+
+  .keypad {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--paper-raised);
+    border-top: 1px solid var(--line);
+    padding: 0.5rem 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
+    transform: translateY(105%);
+    transition: transform 0.2s ease;
+    z-index: 10;
+  }
+
+  .keypad.is-visible { transform: translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .keypad { transition: none; }
+  }
+
+  .keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    max-width: 30rem;
+    margin: 0 auto;
+  }
+
+  .keypad button {
+    min-height: 3.1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.25rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .keypad button.op {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-color: var(--accent-soft);
+  }
+
+  .keypad button:active { background: var(--accent-soft); }
+
+  .keypad-done {
+    display: block;
+    width: 100%;
+    max-width: 30rem;
+    margin: 0.5rem auto 0;
+    min-height: 2.75rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
 </style>
 
 <main>
@@ -231,8 +297,8 @@
   <h1>Currency Ledger</h1>
   <p class="lede">
     Same conversion logic as the iOS app, running here so you can try it
-    on your phone before installing anything. Type into any row — plain
-    numbers or basic math like <code>12+3*2</code> both work.
+    on your phone before installing anything. Tap a row and use the keypad
+    below — plain numbers or basic math like <code>12+3*2</code> both work.
   </p>
 
   <div class="ledger" id="ledger"></div>
@@ -245,6 +311,31 @@
     <div class="rates" id="rates"></div>
   </div>
 </main>
+
+<div class="keypad" id="keypad">
+  <div class="keypad-grid">
+    <button type="button" data-key="7">7</button>
+    <button type="button" data-key="8">8</button>
+    <button type="button" data-key="9">9</button>
+    <button type="button" class="op" data-key="/">÷</button>
+
+    <button type="button" data-key="4">4</button>
+    <button type="button" data-key="5">5</button>
+    <button type="button" data-key="6">6</button>
+    <button type="button" class="op" data-key="*">×</button>
+
+    <button type="button" data-key="1">1</button>
+    <button type="button" data-key="2">2</button>
+    <button type="button" data-key="3">3</button>
+    <button type="button" class="op" data-key="-">−</button>
+
+    <button type="button" data-key="backspace" aria-label="Delete">⌫</button>
+    <button type="button" data-key="0">0</button>
+    <button type="button" data-key=".">.</button>
+    <button type="button" class="op" data-key="+">+</button>
+  </div>
+  <button type="button" class="keypad-done" id="keypadDone">Done</button>
+</div>
 
 <script>
   const CURRENCIES = [
@@ -371,6 +462,31 @@
     isUpdating = false;
   }
 
+  const rows = {};
+  let activeCode = null;
+  const keypad = document.getElementById("keypad");
+
+  function activate(code) {
+    if (activeCode === code) return;
+    if (activeCode !== null) {
+      commit(activeCode);
+      rows[activeCode].classList.remove("is-focused");
+    }
+    activeCode = code;
+    rows[code].classList.add("is-focused");
+    keypad.classList.add("is-visible");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rows[code].scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  function deactivate() {
+    if (activeCode === null) return;
+    commit(activeCode);
+    rows[activeCode].classList.remove("is-focused");
+    activeCode = null;
+    keypad.classList.remove("is-visible");
+  }
+
   for (const c of CURRENCIES) {
     const row = document.createElement("div");
     row.className = "row";
@@ -388,29 +504,42 @@
     const field = row.querySelector(".amount-field");
     const input = document.createElement("input");
     input.type = "text";
-    input.autocomplete = "off";
-    input.autocapitalize = "off";
-    input.setAttribute("autocorrect", "off");
-    input.spellcheck = false;
+    input.readOnly = true;
+    input.tabIndex = -1;
+    input.inputMode = "none";
     input.placeholder = "0";
     input.setAttribute("aria-label", c.name + " amount");
     field.appendChild(input);
 
-    input.addEventListener("input", (e) => updateFrom(c.code, e.target.value));
-    input.addEventListener("focus", () => row.classList.add("is-focused"));
-    input.addEventListener("blur", () => {
-      row.classList.remove("is-focused");
-      commit(c.code);
-    });
+    row.addEventListener("click", () => activate(c.code));
 
     inputs[c.code] = input;
+    rows[c.code] = row;
     ledger.appendChild(row);
   }
+
+  // Digits/operators/backspace all route through here instead of native
+  // keyboard events, since the boxes are readonly and driven by the
+  // on-screen keypad below.
+  document.querySelectorAll(".keypad button[data-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (activeCode === null) return;
+      const input = inputs[activeCode];
+      const key = button.dataset.key;
+      const current = input.value === "0" ? "" : input.value;
+      const next = key === "backspace" ? current.slice(0, -1) : current + key;
+      input.value = next;
+      updateFrom(activeCode, next);
+    });
+  });
+
+  document.getElementById("keypadDone").addEventListener("click", deactivate);
 
   document.getElementById("clearAll").addEventListener("click", () => {
     isUpdating = true;
     for (const c of CURRENCIES) inputs[c.code].value = "0";
     isUpdating = false;
+    deactivate();
   });
 
   const ratesEl = document.getElementById("rates");
