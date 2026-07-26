@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var model = ConverterModel()
     @FocusState private var focusedField: Currency?
+    @State private var previouslyFocusedField: Currency?
 
     var body: some View {
         NavigationStack {
@@ -20,11 +21,21 @@ struct ContentView: View {
                         .focused($focusedField, equals: currency)
                     }
 
-                    Text("Rates are approximate and fixed in the app. Update Currency.swift to refresh them.")
+                    Button(role: .destructive) {
+                        focusedField = nil
+                        model.clearAll()
+                    } label: {
+                        Text("Clear All")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.top, 8)
+
+                    Text("Boxes accept basic math (e.g. 12+3*2). Rates are approximate and fixed in the app — update Currency.swift to refresh them.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                 }
                 .padding()
             }
@@ -35,6 +46,12 @@ struct ContentView: View {
                     Spacer()
                     Button("Done") { focusedField = nil }
                 }
+            }
+            .onChange(of: focusedField) { newValue in
+                if let previous = previouslyFocusedField, previous != newValue {
+                    model.commit(previous)
+                }
+                previouslyFocusedField = newValue
             }
         }
     }

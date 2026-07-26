@@ -11,6 +11,7 @@
 		1000000000000000000000D2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B2 /* ContentView.swift */; };
 		1000000000000000000000D3 /* Currency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B3 /* Currency.swift */; };
 		1000000000000000000000D4 /* ConverterModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B4 /* ConverterModel.swift */; };
+		1000000000000000000000D7 /* ExpressionEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B7 /* ExpressionEvaluator.swift */; };
 		1000000000000000000000D5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B5 /* Assets.xcassets */; };
 		1000000000000000000000D6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000B6 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -20,6 +21,7 @@
 		1000000000000000000000B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1000000000000000000000B3 /* Currency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Currency.swift; sourceTree = "<group>"; };
 		1000000000000000000000B4 /* ConverterModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConverterModel.swift; sourceTree = "<group>"; };
+		1000000000000000000000B7 /* ExpressionEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpressionEvaluator.swift; sourceTree = "<group>"; };
 		1000000000000000000000B5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1000000000000000000000B6 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		1000000000000000000000C1 /* CurrencyConverter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CurrencyConverter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -59,6 +61,7 @@
 				1000000000000000000000B2 /* ContentView.swift */,
 				1000000000000000000000B3 /* Currency.swift */,
 				1000000000000000000000B4 /* ConverterModel.swift */,
+				1000000000000000000000B7 /* ExpressionEvaluator.swift */,
 				1000000000000000000000B5 /* Assets.xcassets */,
 				1000000000000000000000A5 /* Preview Content */,
 			);
@@ -147,6 +150,7 @@
 				1000000000000000000000D1 /* CurrencyConverterApp.swift in Sources */,
 				1000000000000000000000D3 /* Currency.swift in Sources */,
 				1000000000000000000000D4 /* ConverterModel.swift in Sources */,
+				1000000000000000000000D7 /* ExpressionEvaluator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
