@@ -78,8 +78,15 @@
     font-size: 2.1rem;
     line-height: 1.15;
     letter-spacing: -0.01em;
-    margin: 0 0 1.5rem;
+    margin: 0 0 0.5rem;
     text-wrap: balance;
+  }
+
+  .rates-status {
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+    margin: 0 0 1.5rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .ledger {
@@ -268,14 +275,16 @@
 
 <main>
   <h1>Currency Ledger</h1>
+  <p class="rates-status" id="ratesStatus">Checking for live rates…</p>
 
   <div class="ledger" id="ledger"></div>
 
   <button class="clear-all" id="clearAll" type="button">Clear all</button>
 
   <div class="foot">
-    <strong>Note:</strong> this page mimics the SwiftUI app's behavior for
-    testing — it isn't the installed app itself. Rates are fixed, not live.
+    <strong>Note:</strong> rates refresh from a live feed on load; if that
+    fails, the last successfully fetched rates are reused, falling back to
+    built-in defaults if none are cached yet.
     <div class="rates" id="rates"></div>
   </div>
 </main>
@@ -308,12 +317,43 @@
 
 <script>
   const CURRENCIES = [
-    { code: "USD", name: "US Dollar",          symbol: "$",    unitsPerUSD: 1.0  },
-    { code: "HKD", name: "Hong Kong Dollar",   symbol: "HK$",  unitsPerUSD: 7.81 },
-    { code: "INR", name: "Indian Rupee",       symbol: "₹", unitsPerUSD: 87.5 },
-    { code: "EUR", name: "Euro",               symbol: "€", unitsPerUSD: 0.86 },
-    { code: "CHF", name: "Swiss Franc",        symbol: "Fr",   unitsPerUSD: 0.80 },
+    { code: "USD", name: "US Dollar",          symbol: "$"   },
+    { code: "HKD", name: "Hong Kong Dollar",   symbol: "HK$" },
+    { code: "INR", name: "Indian Rupee",       symbol: "₹" },
+    { code: "EUR", name: "Euro",               symbol: "€" },
+    { code: "CHF", name: "Swiss Franc",        symbol: "Fr"  },
   ];
+
+  // Used only when there's no cached live rate at all yet (e.g. the very
+  // first launch with no connectivity). Approximate rates as of 2026-07-26 —
+  // once a live fetch ever succeeds, its result is cached and takes over.
+  const FALLBACK_RATES = { USD: 1.0, HKD: 7.81, INR: 87.5, EUR: 0.86, CHF: 0.80 };
+  const RATES_CACHE_KEY = "currencyLedgerRatesCache";
+
+  function loadCachedRates() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(RATES_CACHE_KEY));
+      if (parsed && parsed.rates && parsed.fetchedAt) return parsed;
+    } catch {
+      // localStorage unavailable or corrupt — treat as no cache.
+    }
+    return null;
+  }
+
+  function saveCachedRates(newRates, fetchedAt) {
+    try {
+      localStorage.setItem(RATES_CACHE_KEY, JSON.stringify({ rates: newRates, fetchedAt }));
+    } catch {
+      // Private browsing etc. — live rates still work for this session, just not persisted.
+    }
+  }
+
+  function formatDateLabel(iso) {
+    return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short" });
+  }
+
+  const cached = loadCachedRates();
+  let rates = cached ? cached.rates : { ...FALLBACK_RATES };
 
   const ledger = document.getElementById("ledger");
   const inputs = {};
@@ -396,7 +436,6 @@
     isUpdating = true;
 
     const sanitized = rawText.replace(/,/g, "").replace(/\s/g, "");
-    const source = CURRENCIES.find(c => c.code === code);
 
     if (sanitized === "") {
       for (const c of CURRENCIES) {
@@ -413,10 +452,10 @@
       return;
     }
 
-    const usdValue = enteredValue / source.unitsPerUSD;
+    const usdValue = enteredValue / rates[code];
     for (const c of CURRENCIES) {
       if (c.code === code) continue;
-      inputs[c.code].value = format(usdValue * c.unitsPerUSD);
+      inputs[c.code].value = format(usdValue * rates[c.code]);
     }
     isUpdating = false;
   }
@@ -512,12 +551,55 @@
   });
 
   const ratesEl = document.getElementById("rates");
-  for (const c of CURRENCIES) {
-    const label = document.createElement("span");
-    label.textContent = c.code;
-    const value = document.createElement("span");
-    value.textContent = c.code === "USD" ? "base" : `${c.unitsPerUSD} per $1`;
-    ratesEl.appendChild(label);
-    ratesEl.appendChild(value);
+  function renderRatesFooter() {
+    ratesEl.innerHTML = "";
+    for (const c of CURRENCIES) {
+      const label = document.createElement("span");
+      label.textContent = c.code;
+      const value = document.createElement("span");
+      value.textContent = c.code === "USD" ? "base" : `${rates[c.code]} per $1`;
+      ratesEl.appendChild(label);
+      ratesEl.appendChild(value);
+    }
   }
+  renderRatesFooter();
+
+  const statusEl = document.getElementById("ratesStatus");
+  function setStatus(text) {
+    statusEl.textContent = text;
+  }
+
+  if (cached) {
+    setStatus(`Checking for live rates… (showing ${formatDateLabel(cached.fetchedAt)} for now)`);
+  }
+
+  (async function refreshLiveRates() {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const response = await fetch(
+        "https://api.frankfurter.app/latest?from=USD&to=HKD,INR,EUR,CHF",
+        { signal: controller.signal }
+      );
+      clearTimeout(timeout);
+      if (!response.ok) throw new Error("bad response");
+      const data = await response.json();
+      const fetched = { USD: 1, ...data.rates };
+      if (!CURRENCIES.every((c) => typeof fetched[c.code] === "number")) {
+        throw new Error("missing currency in response");
+      }
+
+      rates = fetched;
+      const fetchedAt = new Date().toISOString();
+      saveCachedRates(rates, fetchedAt);
+      renderRatesFooter();
+      setStatus(`Live rates · ${formatDateLabel(fetchedAt)}`);
+    } catch {
+      if (cached) {
+        setStatus(`Offline · showing rates from ${formatDateLabel(cached.fetchedAt)}`);
+      } else {
+        setStatus("Offline · using built-in default rates");
+      }
+    }
+  })();
 </script>
