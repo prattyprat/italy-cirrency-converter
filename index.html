@@ -1,5 +1,5 @@
-<title>Currency Ledger — Preview</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Currency Ledger</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Currency Ledger">
@@ -53,7 +53,7 @@
     --accent-ink: #0f3d32;
   }
 
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; touch-action: manipulation; }
 
   body {
     margin: 0;
@@ -72,31 +72,14 @@
     padding: calc(2.75rem + env(safe-area-inset-top)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom));
   }
 
-  .eyebrow {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 0.5rem;
-  }
-
   h1 {
     font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
     font-weight: 400;
     font-size: 2.1rem;
     line-height: 1.15;
     letter-spacing: -0.01em;
-    margin: 0 0 0.6rem;
+    margin: 0 0 1.5rem;
     text-wrap: balance;
-  }
-
-  .lede {
-    font-size: 0.9375rem;
-    line-height: 1.5;
-    color: var(--ink-soft);
-    max-width: 34ch;
-    margin: 0 0 2.25rem;
   }
 
   .ledger {
@@ -271,24 +254,12 @@
     border-color: var(--accent-soft);
   }
 
-  .keypad button.equals,
-  .keypad button.secondary {
-    grid-column: span 2;
-  }
-
   .keypad button.equals {
+    grid-column: 1 / -1;
     background: var(--accent);
     color: var(--paper);
     border-color: var(--accent);
     font-weight: 600;
-  }
-
-  .keypad button.secondary {
-    background: transparent;
-    font-size: 0.875rem;
-    font-family: inherit;
-    font-weight: 600;
-    letter-spacing: 0.02em;
   }
 
   .keypad button:active { background: var(--accent-soft); }
@@ -296,13 +267,7 @@
 </style>
 
 <main>
-  <p class="eyebrow">Browser preview</p>
   <h1>Currency Ledger</h1>
-  <p class="lede">
-    Same conversion logic as the iOS app, running here so you can try it
-    on your phone before installing anything. Tap a row and use the keypad
-    below — plain numbers or basic math like <code>12+3*2</code> both work.
-  </p>
 
   <div class="ledger" id="ledger"></div>
 
@@ -337,7 +302,6 @@
     <button type="button" data-key=".">.</button>
     <button type="button" class="op" data-key="+">+</button>
 
-    <button type="button" class="secondary" id="keypadDone">Done</button>
     <button type="button" class="equals" id="keypadEquals">=</button>
   </div>
 </div>
@@ -538,11 +502,7 @@
     });
   });
 
-  document.getElementById("keypadEquals").addEventListener("click", () => {
-    if (activeCode !== null) commit(activeCode);
-  });
-
-  document.getElementById("keypadDone").addEventListener("click", deactivate);
+  document.getElementById("keypadEquals").addEventListener("click", deactivate);
 
   document.getElementById("clearAll").addEventListener("click", () => {
     isUpdating = true;
