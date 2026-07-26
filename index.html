@@ -582,35 +582,63 @@
     setStatus(`Checking for live rates… (showing ${formatDateLabel(cached.fetchedAt)} for now)`);
   }
 
-  (async function refreshLiveRates() {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
-      const response = await fetch(
-        "https://api.frankfurter.app/latest?from=USD&to=HKD,INR,EUR,CHF",
-        { signal: controller.signal }
-      );
-      clearTimeout(timeout);
-      if (!response.ok) throw new Error(`server returned HTTP ${response.status}`);
-      const data = await response.json();
-      const fetched = { USD: 1, ...data.rates };
-      if (!CURRENCIES.every((c) => typeof fetched[c.code] === "number")) {
-        throw new Error("response was missing a currency");
-      }
+  // Two independent free providers, tried in order — if one is blocked
+  // (CORS, rate limit, outage) the other still gets a chance before
+  // falling back to cached/default rates.
+  const RATE_PROVIDERS = [
+    {
+      name: "frankfurter",
+      url: "https://api.frankfurter.app/latest?from=USD&to=HKD,INR,EUR,CHF",
+      parse: (data) => ({ USD: 1, ...data.rates }),
+    },
+    {
+      name: "open.er-api.com",
+      url: "https://open.er-api.com/v6/latest/USD",
+      parse: (data) => data.rates,
+    },
+  ];
 
-      rates = fetched;
-      const fetchedAt = new Date().toISOString();
-      saveCachedRates(rates, fetchedAt);
-      renderRatesFooter();
-      setStatus(`Live rates · ${formatDateLabel(fetchedAt)}`);
-    } catch (err) {
-      const reason = err && err.name === "AbortError" ? "request timed out" : (err && err.message) || "network error";
-      console.error("Live rate fetch failed:", err);
-      if (cached) {
-        setStatus(`Offline (${reason}) · showing rates from ${formatDateLabel(cached.fetchedAt)}`);
-      } else {
-        setStatus(`Offline (${reason}) · using built-in default rates`);
+  async function fetchProviderRates(provider) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch(provider.url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`${provider.name}: HTTP ${response.status}`);
+      const data = await response.json();
+      const parsed = provider.parse(data);
+      if (!CURRENCIES.every((c) => typeof parsed[c.code] === "number")) {
+        throw new Error(`${provider.name}: response missing a currency`);
       }
+      return parsed;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  (async function refreshLiveRates() {
+    let lastError = null;
+    for (const provider of RATE_PROVIDERS) {
+      try {
+        rates = await fetchProviderRates(provider);
+        const fetchedAt = new Date().toISOString();
+        saveCachedRates(rates, fetchedAt);
+        renderRatesFooter();
+        setStatus(`Live rates · ${formatDateLabel(fetchedAt)}`);
+        return;
+      } catch (err) {
+        lastError = err;
+        console.error("Rate provider failed:", err);
+      }
+    }
+
+    const reason =
+      lastError && lastError.name === "AbortError"
+        ? "request timed out"
+        : (lastError && lastError.message) || "network error";
+    if (cached) {
+      setStatus(`Offline (${reason}) · showing rates from ${formatDateLabel(cached.fetchedAt)}`);
+    } else {
+      setStatus(`Offline (${reason}) · using built-in default rates`);
     }
   })();
 </script>
